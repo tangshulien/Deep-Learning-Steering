@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python
 import argparse
 import sys
@@ -9,6 +10,7 @@ from keras.models import model_from_json
 
 pygame.init()
 size = (320*2, 160*2)
+
 pygame.display.set_caption("comma.ai data viewer")
 screen = pygame.display.set_mode(size, pygame.DOUBLEBUF)
 
@@ -52,8 +54,8 @@ def draw_pt(img, x, y, color, sz=1):
   row, col = perspective_tform(x, y)
   if row >= 0 and row < img.shape[0] and\
      col >= 0 and col < img.shape[1]:
-    img[row-sz:row+sz, col-sz:col+sz] = color
-
+    #img[row-sz:row+sz, col-sz:col+sz] = color
+    img[int(row-sz):int(row+sz), int(col-sz):int(col+sz)] = color
 def draw_path(img, path_x, path_y, color):
   for x, y in zip(path_x, path_y):
     draw_pt(img, x, y, color)
@@ -109,8 +111,8 @@ if __name__ == "__main__":
   # skip to highway
   for i in range(skip*100, log['times'].shape[0]):
     if i%100 == 0:
-      #print "%.2f seconds elapsed" % (i/100.0)
       print ("%.2f seconds elapsed" % (i/100.0))
+      
     img = cam['X'][log['cam1_ptr'][i]].swapaxes(0,2).swapaxes(0,1)
 
     predicted_steers = model.predict(img[None, :, :, :].transpose(0, 3, 1, 2))[0][0]
@@ -120,9 +122,10 @@ if __name__ == "__main__":
 
     draw_path_on(img, speed_ms, -angle_steers/10.0)
     draw_path_on(img, speed_ms, -predicted_steers/10.0, (0, 255, 0))
-
+    
     # draw on
     pygame.surfarray.blit_array(camera_surface, img.swapaxes(0,1))
+
     camera_surface_2x = pygame.transform.scale2x(camera_surface)
     screen.blit(camera_surface_2x, (0,0))
     pygame.display.flip()
