@@ -79,7 +79,7 @@ Now rebuild a fresh, untrained model and evaluate it on the test set. An untrain
 model = create_model()
 
 # Evaluate the model
-loss, acc = model.evaluate(test_images, test_labels, verbose=2)
+loss, acc = model.evaluate(test_images, test_labels, verbose=2) ???????????????????????
 print("Untrained model, accuracy: {:5.2f}%".format(100 * acc))
 
 """Then load the weights from the checkpoint and re-evaluate:"""
