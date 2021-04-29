@@ -1,3 +1,8 @@
+"""
+steering_angle.json & steering_angle.keras will be outputted after training.
+open terminal in research-master and run:
+"python view_steering_model_tt.py ./outputs/steering_model/steering_angle.json"
+"""
 #!/usr/bin/env python
 import argparse
 import sys
