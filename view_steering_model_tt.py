@@ -1,8 +1,3 @@
-"""
-steering_angle.json & steering_angle.keras will be outputted after training.
-open terminal in research-master and run:
-"python view_steering_model_tt.py ./outputs/steering_model/steering_angle.json"
-"""
 #!/usr/bin/env python
 import argparse
 import sys
@@ -67,13 +62,31 @@ def draw_path(img, path_x, path_y, color):
 # ***** functions to draw predicted path *****
 
 def calc_curvature(v_ego, angle_steers, angle_offset=0):
-  deg_to_rad = np.pi/180.
+               ''' v_ego? angle_steers??? '''
+  deg_to_rad = np.pi/180. # 3.1415.../180
+  
   slip_fator = 0.0014 # slip factor obtained from real data
   steer_ratio = 15.3  # from http://www.edmunds.com/acura/ilx/2016/road-test-specs/
+  '''
+  In most passenger cars, the ratio is between 12:1 and 20:1. For example, 
+  if one complete turn of the steering wheel, 360 degrees, 
+  causes the wheels to turn 24 degrees, the ratio is then 360:24 = 15:1.
+  '''
   wheel_base = 2.67   # from http://www.edmunds.com/acura/ilx/2016/sedan/features-specs/
-
+  #The distance between the centers of the front and rear wheels.
+  
   angle_steers_rad = (angle_steers - angle_offset) * deg_to_rad
+  ''' -0.02094...  = (-1.2         - 0           ) * 0.01745...
+       0.04953...  = (2.8384...    - 0           ) * 0.01745...'''   
   curvature = angle_steers_rad/(steer_ratio * wheel_base * (1. + slip_fator * v_ego**2))
+  '''
+? 0.0001226...=-0.02094...  /(    15.3    *     2.67   * (1. +   0.0014   *28.6..**2))
+? 0.0002389...=-0.02094...  /          40.851          * (2.145...)
+?-0.0002658...= 0.04953...  /(    15.3    *     2.67   * (1. +   0.0014   *28.6..**2))
+? 0.0005652...= 0.04953...  /          40.851          * (2.145...)
+  '''
+  #print ('???angle_offset=', angle_offset)
+
   return curvature
 
 def calc_lookahead_offset(v_ego, angle_steers, d_lookahead, angle_offset=0):
@@ -81,31 +94,37 @@ def calc_lookahead_offset(v_ego, angle_steers, d_lookahead, angle_offset=0):
   curvature = calc_curvature(v_ego, angle_steers, angle_offset)
 
   # clip is to avoid arcsin NaNs due to too sharp turns
-  y_actual = d_lookahead * np.tan(np.arcsin(np.clip(d_lookahead * curvature, -0.999, 0.999))/2.)
+  #y_actual = d_lookahead * np.tan(np.arcsin(np.clip(d_lookahead * curvature, -0.999, 0.999))/2.)
+  y_actual = d_lookahead * np.tan(np.arcsin(np.clip(d_lookahead * curvature, -2., 2.))/2.)
+  #-2.987...= 0.5 *np.tan(np.arcsin(np.clip(0.5 * -0.0002658..., -0.999, 0.999))/2.)
+  #numpy.clip(a, a_min, a_max, out=None)
+  #print ('??? np.clip=\n', np.clip)
   return y_actual, curvature
 
 def draw_path_on(img, speed_ms, angle_steers, color=(0,0,255)):
-  path_x = np.arange(0., 50.1, 0.5)
+  path_x = np.arange(0., 200.1, 0.5)
   path_y, _ = calc_lookahead_offset(speed_ms, angle_steers, path_x)
-  draw_path(img, path_x, path_y, color)
+
+  draw_path(img, path_x, path_y, color) ### DRAW GROUND_TRUTH_PATH
+  print ('???path_y=\n', path_y)
 
 # ***** main loop *****
 if __name__ == "__main__":
   parser = argparse.ArgumentParser(description='Path viewer')
   parser.add_argument('model', type=str, help='Path to model definition json. Model weights should be on the same path.')
-  parser.add_argument('--dataset', type=str, default="2016-06-08--11-46-01", help='Dataset/video clip name')
+  parser.add_argument('--dataset', type=str, default="2016-01-30--11-24-51", help='Dataset/video clip name')
   args = parser.parse_args()
 
   with open(args.model, 'r') as jfile:
     model = model_from_json(json.load(jfile))
 
-  model.compile("sgd", "mse")
+  model.compile("sgd", "mae")
   weights_file = args.model.replace('json', 'keras')
   model.load_weights(weights_file)
 
   # default dataset is the validation data on the highway
   dataset = args.dataset
-  skip = 300
+  skip = 250 #300
 
   log = h5py.File("dataset/log/"+dataset+".h5", "r")
   cam = h5py.File("dataset/camera/"+dataset+".h5", "r")
@@ -116,7 +135,7 @@ if __name__ == "__main__":
   for i in range(skip*100, log['times'].shape[0]):
     if i%100 == 0:
       print ("%.2f seconds elapsed" % (i/100.0))
-      
+      #print ("???deg_to_rad", deg_to_rad)
     img = cam['X'][log['cam1_ptr'][i]].swapaxes(0,2).swapaxes(0,1)
 
     predicted_steers = model.predict(img[None, :, :, :].transpose(0, 3, 1, 2))[0][0]
@@ -125,7 +144,8 @@ if __name__ == "__main__":
     speed_ms = log['speed'][i]
 
     draw_path_on(img, speed_ms, -angle_steers/10.0)
-    draw_path_on(img, speed_ms, -predicted_steers/10.0, (0, 255, 0))
+    #draw_path_on(img, speed_ms, -predicted_steers/10.0, (0, 255, 0))
+    draw_path_on(img, speed_ms, -predicted_steers/10.0, (255, 0, 0)) ### DRAW PREDICTION_PATH
     
     # draw on
     pygame.surfarray.blit_array(camera_surface, img.swapaxes(0,1))
